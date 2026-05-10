@@ -33,7 +33,16 @@ jobs:
         if: matrix.platform == 'ubuntu-22.04'
         run: |
           sudo apt update
-          sudo apt install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+          sudo apt install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev
 
       - name: Install frontend dependencies
         run: npm install
@@ -50,5 +59,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: phoenix-ai-${{ matrix.platform }}
-          path: |
-            src-tauri/target/release/bundle/**/*
+          path: src-tauri/target/release/bundle/
