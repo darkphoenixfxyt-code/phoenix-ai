@@ -14,6 +14,8 @@ const messengerBtn = document.getElementById("messenger-btn");
 
 const nameInput = document.getElementById("name-input");
 const displayName = document.getElementById("display-name");
+const groqApiKeyInput = document.getElementById("groq-api-key");
+const saveGroqKeyBtn = document.getElementById("save-groq-key");
 
 const pfpUpload = document.getElementById("pfp-upload");
 const pfpPreview = document.getElementById("pfp-preview");
@@ -44,6 +46,9 @@ const chooseProBtn = document.getElementById("choose-pro");
 const liteCard = document.getElementById("lite-card");
 const proCard = document.getElementById("pro-card");
 
+const inputBar = document.getElementById("input-bar");
+const typingIndicator = document.getElementById("typing-indicator");
+
 /* STATE */
 let currentUploadedImage = null;
 let currentUploadedText = null;
@@ -54,85 +59,114 @@ let messengerPoller = null;
 let chats = JSON.parse(localStorage.getItem("phoenixChats")) || [];
 let currentChatId = localStorage.getItem("phoenixCurrentChatId") || null;
 
+/* HELPERS */
+function getMessengerUsername() {
+  return nameInput?.value?.trim() || "Phoenix User";
+}
+
+function getGroqApiKey() {
+  return groqApiKeyInput?.value?.trim() || "";
+}
+
+function showAiBar() {
+  if (inputBar) inputBar.classList.remove("hidden");
+}
+
+function hideAiBar() {
+  if (inputBar) inputBar.classList.add("hidden");
+  if (typingIndicator) typingIndicator.classList.add("hidden");
+}
+
+function showTyping() {
+  if (typingIndicator && !messengerModeOpen) {
+    typingIndicator.classList.remove("hidden");
+  }
+}
+
+function hideTyping() {
+  if (typingIndicator) typingIndicator.classList.add("hidden");
+}
+
 /* SAVE / LOAD */
 function saveChats() {
   localStorage.setItem("phoenixChats", JSON.stringify(chats));
-
-  if (currentChatId) {
-    localStorage.setItem("phoenixCurrentChatId", currentChatId);
-  }
+  if (currentChatId) localStorage.setItem("phoenixCurrentChatId", currentChatId);
 }
 
 function saveSettings() {
   localStorage.setItem(
     "phoenixSettings",
     JSON.stringify({
-      name: nameInput.value,
-      pfp: pfpPreview.src,
-      bg: bgPicker.value,
-      user: userPicker.value,
-      ai: aiPicker.value,
-      text: textPicker.value,
+      name: nameInput?.value || "PHOENIX 🏅",
+      pfp: pfpPreview?.src || "",
+      bg: bgPicker?.value || "#050509",
+      user: userPicker?.value || "#7c3aed",
+      ai: aiPicker?.value || "#2f3136",
+      text: textPicker?.value || "#ffffff",
+      groqApiKey: groqApiKeyInput?.value || "",
     })
   );
 }
 
 function loadSettings() {
-  const saved = JSON.parse(localStorage.getItem("phoenixSettings"));
+  const saved = JSON.parse(localStorage.getItem("phoenixSettings") || "null");
   if (!saved) return;
 
-  if (saved.name) {
+  if (saved.name && nameInput && displayName) {
     nameInput.value = saved.name;
     displayName.textContent = saved.name;
   }
 
-  if (saved.pfp) {
+  if (saved.pfp && pfpPreview) {
     pfpPreview.src = saved.pfp;
-
-    if (settingsPfpPreview) {
-      settingsPfpPreview.src = saved.pfp;
-    }
+    if (settingsPfpPreview) settingsPfpPreview.src = saved.pfp;
   }
 
-  if (saved.bg) {
+  if (saved.bg && bgPicker) {
     bgPicker.value = saved.bg;
     document.documentElement.style.setProperty("--bg", saved.bg);
   }
 
-  if (saved.user) {
+  if (saved.user && userPicker) {
     userPicker.value = saved.user;
     document.documentElement.style.setProperty("--user-bubble", saved.user);
   }
 
-  if (saved.ai) {
+  if (saved.ai && aiPicker) {
     aiPicker.value = saved.ai;
     document.documentElement.style.setProperty("--ai-bubble", saved.ai);
   }
 
-  if (saved.text) {
+  if (saved.text && textPicker) {
     textPicker.value = saved.text;
     document.documentElement.style.setProperty("--text", saved.text);
   }
+
+  if (saved.groqApiKey && groqApiKeyInput) {
+    groqApiKeyInput.value = saved.groqApiKey;
+  }
 }
 
-/* MESSAGES */
+/* CHAT MESSAGES */
 function addMessage(text, who, save = true) {
   const div = document.createElement("div");
   div.className = `msg ${who}`;
 
-  div.innerHTML = `
-    <div class="msg-header">
-      ${who === "ai" ? "🔥 PHOENIX AI <span>🏅 GOLD</span>" : "You"}
-    </div>
-    <div class="msg-body">${text}</div>
-  `;
+  const header = document.createElement("div");
+  header.className = "msg-header";
+  header.innerHTML = who === "ai" ? "🔥 PHOENIX AI <span>🏅 GOLD</span>" : "You";
 
+  const body = document.createElement("div");
+  body.className = "msg-body";
+  body.textContent = text;
+
+  div.appendChild(header);
+  div.appendChild(body);
   messages.appendChild(div);
   messages.scrollTop = messages.scrollHeight;
 
   if (save && currentChatId) {
     const chat = chats.find((c) => c.id === currentChatId);
-
     if (chat) {
       chat.messages.push({ text, who });
       saveChats();
@@ -142,7 +176,6 @@ function addMessage(text, who, save = true) {
 
 function addImageToChat(imageUrl, save = true) {
   const img = document.createElement("img");
-
   img.src = imageUrl;
   img.style.maxWidth = "320px";
   img.style.borderRadius = "18px";
@@ -155,13 +188,8 @@ function addImageToChat(imageUrl, save = true) {
 
   if (save && currentChatId) {
     const chat = chats.find((c) => c.id === currentChatId);
-
     if (chat) {
-      chat.messages.push({
-        who: "image",
-        text: imageUrl,
-      });
-
+      chat.messages.push({ who: "image", text: imageUrl });
       saveChats();
     }
   }
@@ -173,8 +201,7 @@ function typeMessage(text, who) {
 
   const header = document.createElement("div");
   header.className = "msg-header";
-  header.innerHTML =
-    who === "ai" ? "🔥 PHOENIX AI <span>🏅 GOLD</span>" : "You";
+  header.innerHTML = who === "ai" ? "🔥 PHOENIX AI <span>🏅 GOLD</span>" : "You";
 
   const body = document.createElement("div");
   body.className = "msg-body";
@@ -184,10 +211,11 @@ function typeMessage(text, who) {
   messages.appendChild(div);
 
   let i = 0;
+  const finalText = String(text || "");
 
   function type() {
-    if (i < text.length) {
-      body.textContent += text[i];
+    if (i < finalText.length) {
+      body.textContent += finalText[i];
       i++;
       messages.scrollTop = messages.scrollHeight;
       setTimeout(type, 12);
@@ -198,9 +226,8 @@ function typeMessage(text, who) {
 
   if (currentChatId) {
     const chat = chats.find((c) => c.id === currentChatId);
-
     if (chat) {
-      chat.messages.push({ text, who });
+      chat.messages.push({ text: finalText, who });
       saveChats();
     }
   }
@@ -211,24 +238,18 @@ function renderHistory() {
   chatHistory.innerHTML = "";
 
   if (chats.length === 0) {
-    chatHistory.innerHTML = `
-      <div id="empty-history">
-        Start a chat to see history
-      </div>
-    `;
+    chatHistory.innerHTML = `<div id="empty-history">Start a chat to see history</div>`;
     return;
   }
 
   chats.forEach((chat) => {
     const item = document.createElement("div");
-
-    item.className =
-      chat.id === currentChatId ? "history-item active" : "history-item";
-
+    item.className = chat.id === currentChatId ? "history-item active" : "history-item";
     item.textContent = chat.title;
 
     item.onclick = () => {
       messengerModeOpen = false;
+      showAiBar();
       currentChatId = chat.id;
       saveChats();
       loadChat(chat.id);
@@ -241,23 +262,20 @@ function renderHistory() {
 
 function createNewChat(title = "New Chat") {
   const id = Date.now().toString();
-
-  const chat = {
-    id,
-    title,
-    messages: [],
-  };
+  const chat = { id, title, messages: [] };
 
   chats.unshift(chat);
   currentChatId = id;
 
   saveChats();
   renderHistory();
-
   return chat;
 }
 
 function loadChat(id) {
+  messengerModeOpen = false;
+  showAiBar();
+
   const chat = chats.find((c) => c.id === id);
   if (!chat) return;
 
@@ -274,23 +292,23 @@ function loadChat(id) {
 
 function startNewChat() {
   messengerModeOpen = false;
-  messages.innerHTML = "";
+  showAiBar();
 
+  messages.innerHTML = "";
   currentUploadedImage = null;
   currentUploadedText = null;
   currentUploadedFileName = null;
 
   createNewChat("New Chat");
-
   addMessage("New chat started. What would you like to ask Phoenix AI?", "ai");
-
   promptInput.focus();
 }
 
 /* SEND MESSAGE */
 async function sendMessage() {
-  const prompt = promptInput.value.trim();
+  if (messengerModeOpen) return;
 
+  const prompt = promptInput.value.trim();
   if (!prompt) return;
 
   if (!currentChatId) {
@@ -314,21 +332,15 @@ async function sendMessage() {
 
   if (modelSelect.value === "image-fast") {
     promptInput.value = "";
-
-    const typing = document.getElementById("typing-indicator");
-    if (typing) typing.classList.remove("hidden");
+    showTyping();
 
     try {
-      const imageUrl = await invoke("generate_image_sdxl", {
-        prompt,
-      });
-
-      if (typing) typing.classList.add("hidden");
-
+      const imageUrl = await invoke("generate_image_sdxl", { prompt });
+      hideTyping();
       addMessage("🎨 Generated image:", "ai");
       addImageToChat(imageUrl);
     } catch (err) {
-      if (typing) typing.classList.add("hidden");
+      hideTyping();
       addMessage("Image generation error: " + err, "ai");
     }
 
@@ -359,28 +371,47 @@ ${prompt}
   }
 
   promptInput.value = "";
-
-  const typing = document.getElementById("typing-indicator");
-  if (typing) typing.classList.remove("hidden");
+  showTyping();
 
   try {
-    const response = await invoke("run_local_ai", {
-      model:
-        modelSelect.value === "high"
-          ? "Qwen2_7B"
-          : modelSelect.value === "vision"
-          ? "VisionAI"
-          : "Phi3Mini",
+    let response = "";
+    const selectedModel = modelSelect.value;
 
-      prompt: finalPrompt,
-      image: currentUploadedImage,
-    });
+    console.log("Selected model:", selectedModel);
 
-    if (typing) typing.classList.add("hidden");
+    if (selectedModel === "groq" || selectedModel.toLowerCase().includes("groq")) {
+      const apiKey = getGroqApiKey();
 
+      if (!apiKey) {
+        hideTyping();
+        addMessage(
+          "Missing Groq API key. Open Settings → Online AI and paste your Groq API key.",
+          "ai"
+        );
+        return;
+      }
+
+      response = await invoke("run_groq_ai", {
+        apiKey,
+        prompt: finalPrompt,
+      });
+    } else {
+      response = await invoke("run_local_ai", {
+        model:
+          selectedModel === "high"
+            ? "Qwen2_7B"
+            : selectedModel === "vision"
+            ? "VisionAI"
+            : "Phi3Mini",
+        prompt: finalPrompt,
+        image: currentUploadedImage,
+      });
+    }
+
+    hideTyping();
     typeMessage(response, "ai");
   } catch (err) {
-    if (typing) typing.classList.add("hidden");
+    hideTyping();
     addMessage("Error: " + err, "ai");
   }
 }
@@ -391,7 +422,6 @@ function applyTheme() {
   document.documentElement.style.setProperty("--user-bubble", userPicker.value);
   document.documentElement.style.setProperty("--ai-bubble", aiPicker.value);
   document.documentElement.style.setProperty("--text", textPicker.value);
-
   saveSettings();
 }
 
@@ -409,20 +439,27 @@ nameInput.oninput = () => {
   saveSettings();
 };
 
+if (groqApiKeyInput) {
+  groqApiKeyInput.oninput = saveSettings;
+}
+
+if (saveGroqKeyBtn) {
+  saveGroqKeyBtn.onclick = () => {
+    saveSettings();
+    addMessage("✅ Groq API key saved locally on this device.", "ai", false);
+    settingsModal.classList.add("hidden");
+  };
+}
+
 pfpUpload.onchange = () => {
   const file = pfpUpload.files[0];
-
   if (!file) return;
 
   const reader = new FileReader();
 
   reader.onload = (e) => {
     pfpPreview.src = e.target.result;
-
-    if (settingsPfpPreview) {
-      settingsPfpPreview.src = e.target.result;
-    }
-
+    if (settingsPfpPreview) settingsPfpPreview.src = e.target.result;
     saveSettings();
   };
 
@@ -435,7 +472,13 @@ aiPicker.oninput = applyTheme;
 textPicker.oninput = applyTheme;
 
 resetBtn.onclick = () => {
+  const keepGroqKey = groqApiKeyInput?.value || "";
   localStorage.removeItem("phoenixSettings");
+
+  if (keepGroqKey) {
+    localStorage.setItem("phoenixSettings", JSON.stringify({ groqApiKey: keepGroqKey }));
+  }
+
   location.reload();
 };
 
@@ -446,11 +489,9 @@ uploadBtn.onclick = () => {
 
 fileUpload.onchange = () => {
   const file = fileUpload.files[0];
-
   if (!file) return;
 
   currentUploadedFileName = file.name;
-
   addMessage(`📎 Uploaded: ${file.name}`, "user");
 
   if (file.type.startsWith("image/")) {
@@ -461,11 +502,7 @@ fileUpload.onchange = () => {
       currentUploadedText = null;
 
       addImageToChat(currentUploadedImage);
-
-      addMessage(
-        "Image attached. Ask me something like: “describe this image.”",
-        "ai"
-      );
+      addMessage("Image attached. Ask me something like: “describe this image.”", "ai");
     };
 
     reader.readAsDataURL(file);
@@ -478,7 +515,6 @@ fileUpload.onchange = () => {
     reader.onload = (e) => {
       currentUploadedText = e.target.result;
       currentUploadedImage = null;
-
       addMessage("Text file attached. Ask me something about it.", "ai");
     };
 
@@ -489,10 +525,7 @@ fileUpload.onchange = () => {
   currentUploadedImage = null;
   currentUploadedText = null;
 
-  addMessage(
-    "File attached, but Phoenix can currently read images and text files best.",
-    "ai"
-  );
+  addMessage("File attached, but Phoenix can currently read images and text files best.", "ai");
 };
 
 /* BUTTONS */
@@ -510,7 +543,24 @@ promptInput.addEventListener("keydown", (e) => {
 function addMessengerBubble(text, who) {
   const bubble = document.createElement("div");
   bubble.className = `messenger-bubble ${who}`;
-  bubble.textContent = text;
+
+  const username = document.createElement("div");
+  username.className = "messenger-username";
+
+  const body = document.createElement("div");
+  body.className = "messenger-message";
+
+  if (text.includes(":")) {
+    const split = text.split(":");
+    username.textContent = split.shift();
+    body.textContent = split.join(":").trim();
+  } else {
+    username.textContent = who === "me" ? "You" : "Friend";
+    body.textContent = text;
+  }
+
+  bubble.appendChild(username);
+  bubble.appendChild(body);
 
   const chat = document.getElementById("messenger-chat");
 
@@ -544,11 +594,9 @@ async function pollMessengerMessages() {
 
 function openMessengerPage() {
   messengerModeOpen = true;
+  hideAiBar();
 
-  document
-    .querySelectorAll("#nav button")
-    .forEach((b) => b.classList.remove("active"));
-
+  document.querySelectorAll("#nav button").forEach((b) => b.classList.remove("active"));
   messengerBtn.classList.add("active");
 
   messages.innerHTML = "";
@@ -559,34 +607,22 @@ function openMessengerPage() {
   panel.innerHTML = `
     <div class="messenger-card">
       <h2>📡 Phoenix Messenger</h2>
-      <p>Local Wi-Fi chat. No internet needed.</p>
+      <p>Local Wi-Fi chat. For best results, both PCs should click Create Room, then join each other's room address.</p>
 
       <div class="messenger-actions">
         <button id="create-room-btn">Create Room</button>
         <button id="join-room-btn">Join Room</button>
       </div>
 
-      <input
-        id="room-ip-input"
-        placeholder="Host IP, example: 192.168.1.24:7878"
-      />
-
-      <div id="messenger-status">
-        Not connected
-      </div>
+      <input id="room-ip-input" placeholder="Host IP, example: 192.168.1.24:7878" />
+      <div id="messenger-status">Not connected</div>
     </div>
 
     <div id="messenger-chat"></div>
 
     <div id="messenger-input-row">
-      <input
-        id="messenger-input"
-        placeholder="Type a message..."
-      />
-
-      <button id="messenger-send-btn">
-        Send
-      </button>
+      <input id="messenger-input" placeholder="Type a message..." />
+      <button id="messenger-send-btn">Send</button>
     </div>
   `;
 
@@ -617,10 +653,7 @@ function openMessengerPage() {
     }
 
     try {
-      const result = await invoke("set_messenger_peer", {
-        peer: ip,
-      });
-
+      const result = await invoke("set_messenger_peer", { peer: ip });
       status.textContent = result;
       addMessengerBubble(result, "other");
     } catch (err) {
@@ -638,10 +671,11 @@ function openMessengerPage() {
     try {
       await invoke("send_messenger_message", {
         message: text,
+        username: getMessengerUsername(),
       });
 
-      addMessengerBubble(text, "me");
       input.value = "";
+      pollMessengerMessages();
     } catch (err) {
       addMessengerBubble("Error: " + err, "other");
     }
@@ -662,6 +696,70 @@ if (!messengerPoller) {
   messengerPoller = setInterval(pollMessengerMessages, 1000);
 }
 
+/* MODELS PAGE */
+function openModelsPage() {
+  messengerModeOpen = false;
+  showAiBar();
+
+  messages.innerHTML = "";
+
+  const panel = document.createElement("div");
+  panel.className = "messenger-card";
+
+  panel.innerHTML = `
+    <h2>📦 Phoenix Model Installer</h2>
+
+    <p>Install local AI models for offline use with Ollama, or use Groq Online with an API key.</p>
+
+    <div class="messenger-actions">
+      <button id="install-phi">Install Phi 3 Mini</button>
+      <button id="install-qwen">Install Qwen 3 4B</button>
+      <button id="install-vision">Install Vision AI</button>
+    </div>
+
+    <div id="model-install-status">Ready to install models.</div>
+
+    <hr style="opacity: 0.12; margin: 18px 0;" />
+
+    <h3>🌐 Groq Online</h3>
+    <p>Select “Groq Online” from the top-right model menu and add your API key in Settings.</p>
+  `;
+
+  messages.appendChild(panel);
+
+  const status = document.getElementById("model-install-status");
+
+  document.getElementById("install-phi").onclick = async () => {
+    status.textContent = "Installing Phi 3 Mini...";
+
+    try {
+      status.textContent = await invoke("install_ollama_model", { model: "phi" });
+    } catch (err) {
+      status.textContent = "Error: " + err;
+    }
+  };
+
+  document.getElementById("install-qwen").onclick = async () => {
+    status.textContent = "Installing Qwen 3 4B...";
+
+    try {
+      status.textContent = await invoke("install_ollama_model", { model: "qwen" });
+    } catch (err) {
+      status.textContent = "Error: " + err;
+    }
+  };
+
+  document.getElementById("install-vision").onclick = async () => {
+    status.textContent = "Installing Vision AI...";
+
+    try {
+      status.textContent = await invoke("install_ollama_model", { model: "vision" });
+    } catch (err) {
+      status.textContent = "Error: " + err;
+    }
+  };
+}
+
 /* NAVIGATION */
 document.querySelectorAll("#nav button").forEach((button) => {
   if (button.id === "settings-btn") return;
@@ -669,38 +767,28 @@ document.querySelectorAll("#nav button").forEach((button) => {
 
   button.onclick = () => {
     messengerModeOpen = false;
+    showAiBar();
 
-    document
-      .querySelectorAll("#nav button")
-      .forEach((b) => b.classList.remove("active"));
-
+    document.querySelectorAll("#nav button").forEach((b) => b.classList.remove("active"));
     button.classList.add("active");
 
     const text = button.textContent.toLowerCase();
 
     if (text.includes("models")) {
-      messages.innerHTML = "";
-
-      addMessage(
-        "Models page opened. Choose Phi3Mini, Qwen 2.5, Vision AI, or Image Gen.",
-        "ai",
-        false
-      );
+      openModelsPage();
     }
 
     if (text.includes("prompts")) {
       messages.innerHTML = "";
-
-      addMessage(
-        "Prompts page opened. Soon you can add Phoenix personalities.",
-        "ai",
-        false
-      );
+      addMessage("Prompts page opened. Soon you can add Phoenix personalities.", "ai", false);
     }
 
     if (text.includes("chats")) {
       if (currentChatId) {
         loadChat(currentChatId);
+      } else {
+        messages.innerHTML = "";
+        addMessage("Welcome to Phoenix AI. Start a new chat to begin.", "ai", false);
       }
     }
   };
@@ -708,12 +796,13 @@ document.querySelectorAll("#nav button").forEach((button) => {
 
 /* TUTORIAL */
 const tutorialSteps = [
-  "Phoenix AI is your offline AI assistant. It runs locally using models like Phi and Qwen.",
+  "Phoenix AI is your offline and online AI assistant. It runs locally using Phi/Qwen or online using Groq.",
   "Use the message bar at the bottom to ask Phoenix AI anything.",
-  "Use the model selector at the top right to switch between fast, smart, vision, and image generation models.",
+  "Use the model selector at the top right to switch between fast offline, smart offline, vision, Groq Online, and image generation.",
+  "For Groq Online, open Settings and paste your Groq API key.",
   "Click the plus button in the input bar to upload files or images.",
   "Use New Chat to start fresh. Your chat history will appear in the sidebar.",
-  "Open Settings to change your name, theme colors, and profile picture.",
+  "Open Settings to change your name, theme colors, profile picture, and online AI key.",
   "Open Messenger to create or join a local Wi-Fi chat room.",
 ];
 
@@ -721,7 +810,6 @@ let tutorialIndex = 0;
 
 function showTutorialStep() {
   tutorialText.textContent = tutorialSteps[tutorialIndex];
-
   nextTutorialBtn.textContent =
     tutorialIndex === tutorialSteps.length - 1 ? "Finish" : "Next";
 }
@@ -807,7 +895,6 @@ window.addEventListener("keydown", (e) => {
 
 function activatePhoenixMode() {
   document.body.style.transition = "1s";
-
   document.body.style.background =
     "linear-gradient(45deg, #ff6a00, #ff0000, #7c3aed)";
 
@@ -858,11 +945,8 @@ function activateDevMode() {
 }
 
 function playSecretSound() {
-  const audio = new Audio(
-    "https://www.myinstants.com/media/sounds/vine-boom.mp3"
-  );
-
-  audio.play();
+  const audio = new Audio("https://www.myinstants.com/media/sounds/vine-boom.mp3");
+  audio.play().catch(() => {});
 }
 
 /* LITE / PRO MODE */
@@ -880,7 +964,11 @@ function applyPhoenixMode() {
 
   if (phoenixMode === "lite") {
     options.forEach((option) => {
-      if (option.value === "vision" || option.value === "image-fast") {
+      if (
+        option.value === "vision" ||
+        option.value === "image-fast" ||
+        option.value === "groq"
+      ) {
         option.hidden = true;
         option.disabled = true;
       }
@@ -916,7 +1004,7 @@ function detectPhoenixMode() {
       "Phoenix AI recommends Lite Mode for this device. Better performance and lower RAM usage.";
   } else {
     modeRecommendText.textContent =
-      "Phoenix AI recommends Pro Mode for this device. Full AI features enabled.";
+      "Phoenix AI recommends Pro Mode for this device. Full AI + online features enabled.";
   }
 }
 
@@ -943,13 +1031,8 @@ function updateModeCards() {
   liteCard.classList.remove("selected");
   proCard.classList.remove("selected");
 
-  if (mode === "lite") {
-    liteCard.classList.add("selected");
-  }
-
-  if (mode === "pro") {
-    proCard.classList.add("selected");
-  }
+  if (mode === "lite") liteCard.classList.add("selected");
+  if (mode === "pro") proCard.classList.add("selected");
 }
 
 if (liteCard) {
@@ -975,6 +1058,7 @@ loadSettings();
 renderHistory();
 detectPhoenixMode();
 updateModeCards();
+showAiBar();
 
 if (currentChatId && chats.find((c) => c.id === currentChatId)) {
   loadChat(currentChatId);

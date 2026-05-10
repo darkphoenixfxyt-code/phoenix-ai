@@ -10,7 +10,7 @@
   <div id="app">
     <aside id="sidebar">
       <div id="brand">
-        <div id="logo">🟣</div>
+        <div id="logo">🔥</div>
         <h2>Phoenix AI</h2>
       </div>
 
@@ -53,9 +53,10 @@
 
         <div id="top-actions">
           <select id="mode-select">
-            <option value="low">● Fast (Phi3Mini)</option>
-            <option value="high">● Qwen 2.5 Instruct</option>
-            <option value="vision">👁 Vision AI (Qwen2.5-VL)</option>
+            <option value="low">● Fast Offline (Phi3 Mini)</option>
+            <option value="high">● Smart Offline (Qwen 3 4B)</option>
+            <option value="vision">👁 Vision Offline (LLaVA)</option>
+            <option value="groq">🌐 Groq Online</option>
             <option value="image-fast">🎨 Fast Image Gen (SDXL)</option>
           </select>
         </div>
@@ -123,6 +124,45 @@
       </div>
 
       <div class="settings-section">
+        <h3>🌐 Online AI</h3>
+
+        <div class="settings-row">
+          <div class="settings-column">
+            <label>
+              Groq API Key
+              <div class="api-key-row">
+  <input
+    id="groq-api-key"
+    type="password"
+    placeholder="Paste your Groq API key here"
+    autocomplete="off"
+  />
+
+  <button id="save-groq-key">
+    Save API Key
+  </button>
+
+  <button
+    id="groq-help-btn"
+    title="How to get a Groq API key"
+  >
+    ?
+  </button>
+</div>
+
+<div id="groq-help-text">
+  Go to console.groq.com → Sign in → API Keys → Create API Key → Copy the key and paste it here.
+</div>
+            </label>
+
+            <p class="settings-note">
+              Your key is stored only on this device. Do not share it publicly.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-section">
         <h3>🎨 Theme</h3>
 
         <div class="theme-grid">
@@ -159,7 +199,7 @@
 
           <div class="mode-card" id="pro-card">
             <h4>Pro Mode</h4>
-            <p>Unlocks Vision AI and SDXL image generation.</p>
+            <p>Unlocks Vision AI, online AI, and SDXL image generation.</p>
           </div>
         </div>
       </div>
@@ -177,7 +217,7 @@
       <h2>Welcome to Phoenix AI 🔥</h2>
 
       <p id="tutorial-text">
-        Phoenix AI is your offline AI assistant. This quick guide will show you how to use it.
+        Phoenix AI is your offline and online AI assistant. This quick guide will show you how to use it.
       </p>
 
       <div id="tutorial-actions">

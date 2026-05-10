@@ -1,12 +1,12 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "identifier": "com.ai.app",
-  "productName": "ai",
+  "identifier": "com.phoenix.ai",
+  "productName": "Phoenix AI",
   "version": "0.1.0",
 
   "build": {
-    "beforeBuildCommand": "",
-    "beforeDevCommand": "",
+    "beforeBuildCommand": "npm run build",
+    "beforeDevCommand": "npm run dev",
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173"
   },
@@ -14,12 +14,12 @@
   "app": {
     "windows": [
       {
-        "title": "ai",
-        "width": 900,
-        "height": 650,
+        "title": "Phoenix AI",
+        "width": 1100,
+        "height": 720,
         "resizable": true,
         "fullscreen": false,
-        "devtools": true,
+        "devtools": false,
         "dragDropEnabled": false
       }
     ],
@@ -29,6 +29,27 @@
   },
 
   "bundle": {
-    "resources": ["icons"]
+    "active": true,
+    "targets": ["nsis", "msi"],
+    "resources": ["icons"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.ico"
+    ],
+    "publisher": "Phoenix AI",
+    "copyright": "Copyright © 2026 Phoenix AI",
+    "category": "Productivity",
+    "shortDescription": "Offline AI assistant powered by local models.",
+    "longDescription": "Phoenix AI is a modern offline AI assistant with local model support, chat history, Phoenix Messenger, and a futuristic desktop experience.",
+
+    "windows": {
+      "nsis": {
+        "installerIcon": "icons/icon.ico",
+        "installMode": "perMachine",
+        "displayLanguageSelector": false
+      }
+    }
   }
 }
