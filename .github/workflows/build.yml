@@ -2,8 +2,6 @@ name: Build Phoenix AI
 
 on:
   push:
-    branches:
-      - main
     tags:
       - "phoenix-v*"
 
@@ -20,16 +18,13 @@ jobs:
     runs-on: ${{ matrix.platform }}
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@stable
 
       - name: Install Linux dependencies
         if: matrix.platform == 'ubuntu-22.04'
@@ -52,13 +47,13 @@ jobs:
       - name: Build frontend
         run: npm run build
 
-      - name: Build and release Tauri app
+      - name: Build and Release
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: "Phoenix AI ${{ github.ref_name }}"
-          releaseBody: "Phoenix AI desktop build."
+          releaseName: Phoenix AI ${{ github.ref_name }}
           releaseDraft: false
           prerelease: false
+          
