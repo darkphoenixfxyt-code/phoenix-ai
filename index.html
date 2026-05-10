@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Phoenix AI</title>
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+
+<body>
+  <div id="app">
+    <aside id="sidebar">
+      <div id="brand">
+        <div id="logo">🟣</div>
+        <h2>Phoenix AI</h2>
+      </div>
+
+      <button id="new-chat">＋ New Chat</button>
+
+      <nav id="nav">
+        <button class="active">💬 Chats</button>
+        <button>📦 Models</button>
+        <button>✨ Prompts</button>
+        <button id="messenger-btn">📡 Messenger</button>
+        <button id="settings-btn">⚙ Settings</button>
+      </nav>
+
+      <div id="history-title">CHAT HISTORY</div>
+
+      <div id="chat-history">
+        <div id="empty-history">Start a chat to see history</div>
+      </div>
+
+      <div id="profile-card">
+        <label for="pfp-upload" id="pfp-label">
+          <img
+            id="pfp-preview"
+            src="https://cdn-icons-png.flaticon.com/512/149/149071.png"
+            alt="Profile Picture"
+          />
+        </label>
+
+        <input type="file" id="pfp-upload" accept="image/*" hidden />
+
+        <div id="profile-info">
+          <strong id="display-name">PHOENIX 🏅</strong>
+        </div>
+      </div>
+    </aside>
+
+    <main id="chat-container">
+      <header id="chat-header">
+        <h1>Phoenix AI</h1>
+
+        <div id="top-actions">
+          <select id="mode-select">
+            <option value="low">● Fast (Phi3Mini)</option>
+            <option value="high">● Qwen 2.5 Instruct</option>
+            <option value="vision">👁 Vision AI (Qwen2.5-VL)</option>
+            <option value="image-fast">🎨 Fast Image Gen (SDXL)</option>
+          </select>
+        </div>
+      </header>
+
+      <div id="messages"></div>
+
+      <div id="typing-indicator" class="typing hidden">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+
+      <input type="file" id="file-upload" accept="image/*,.txt,.pdf" hidden />
+
+      <div id="input-bar">
+        <div id="orb">∞</div>
+
+        <input id="prompt" placeholder="Type to Phoenix AI..." />
+
+        <button id="upload-btn" class="mini-btn" title="Upload file or image">
+          ＋
+        </button>
+
+        <button id="send-btn">↑</button>
+      </div>
+    </main>
+  </div>
+
+  <div id="settings-modal" class="hidden">
+    <div id="settings-box">
+      <div id="settings-header">
+        <div>
+          <h2>Settings</h2>
+          <p>Customize your Phoenix AI experience</p>
+        </div>
+
+        <button id="close-settings">×</button>
+      </div>
+
+      <div class="settings-section">
+        <h3>👤 Profile</h3>
+
+        <div class="settings-row">
+          <div class="settings-column">
+            <label>
+              Display Name
+              <input id="name-input" value="PHOENIX 🏅" />
+            </label>
+          </div>
+
+          <div class="settings-column">
+            <label>
+              Profile Picture
+              <label for="pfp-upload" id="settings-pfp-label">
+                <img
+                  id="settings-pfp-preview"
+                  src="https://cdn-icons-png.flaticon.com/512/149/149071.png"
+                  alt="Profile Picture"
+                />
+              </label>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h3>🎨 Theme</h3>
+
+        <div class="theme-grid">
+          <label>
+            Background
+            <input type="color" id="bg-color" value="#050509" />
+          </label>
+
+          <label>
+            User Bubble
+            <input type="color" id="user-color" value="#7c3aed" />
+          </label>
+
+          <label>
+            AI Bubble
+            <input type="color" id="ai-color" value="#2f3136" />
+          </label>
+
+          <label>
+            Text
+            <input type="color" id="text-color" value="#ffffff" />
+          </label>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h3>⚡ Performance Mode</h3>
+
+        <div id="mode-cards">
+          <div class="mode-card" id="lite-card">
+            <h4>Lite Mode</h4>
+            <p>Best for Chromebooks and low-end devices.</p>
+          </div>
+
+          <div class="mode-card" id="pro-card">
+            <h4>Pro Mode</h4>
+            <p>Unlocks Vision AI and SDXL image generation.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h3>🛠 Advanced</h3>
+
+        <button id="reset-theme">Reset Theme</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="tutorial-modal" class="hidden">
+    <div id="tutorial-box">
+      <h2>Welcome to Phoenix AI 🔥</h2>
+
+      <p id="tutorial-text">
+        Phoenix AI is your offline AI assistant. This quick guide will show you how to use it.
+      </p>
+
+      <div id="tutorial-actions">
+        <button id="skip-tutorial">Skip</button>
+        <button id="next-tutorial">Next</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="mode-recommend-modal" class="hidden">
+    <div id="mode-recommend-box">
+      <h2 id="mode-recommend-title">Phoenix AI Setup</h2>
+
+      <p id="mode-recommend-text">Checking your device...</p>
+
+      <div id="mode-recommend-actions">
+        <button id="choose-lite">Use Lite Mode</button>
+        <button id="choose-pro">Use Pro Mode</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
