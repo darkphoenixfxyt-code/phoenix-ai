@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+    tags:
+      - "phoenix-v*"
 
 jobs:
   build-tauri:
@@ -50,13 +52,13 @@ jobs:
       - name: Build frontend
         run: npm run build
 
-      - name: Build Tauri app
+      - name: Build and release Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload bundles
-        uses: actions/upload-artifact@v4
         with:
-          name: phoenix-ai-${{ matrix.platform }}
-          path: src-tauri/target/release/bundle/**/*
+          tagName: ${{ github.ref_name }}
+          releaseName: "Phoenix AI ${{ github.ref_name }}"
+          releaseBody: "Phoenix AI desktop build."
+          releaseDraft: false
+          prerelease: false
