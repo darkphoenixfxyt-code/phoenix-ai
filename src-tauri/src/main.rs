@@ -5,12 +5,14 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream, UdpSocket};
+use std::path::PathBuf;
+use std::process::{Command, Stdio};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Mutex, OnceLock,
 };
 use std::time::Duration;
-use tauri::command;
+use tauri::{command, Manager};
 
 static MESSENGER_MESSAGES: OnceLock<Mutex<Vec<String>>> = OnceLock::new();
 static MESSENGER_PEER: OnceLock<Mutex<Option<String>>> = OnceLock::new();
@@ -29,6 +31,10 @@ fn local_username() -> String {
         .or_else(|_| std::env::var("USER"))
         .unwrap_or_else(|_| "Phoenix User".to_string())
 }
+
+/* =========================
+   TYPES
+========================= */
 
 #[derive(Serialize)]
 struct GroqRequest {
@@ -59,6 +65,76 @@ struct MessengerPacket {
     username: String,
     message: String,
 }
+
+/* =========================
+   BUILT-IN LLAMA SERVER
+========================= */
+
+fn is_llama_server_running() -> bool {
+    TcpStream::connect("127.0.0.1:8081").is_ok()
+}
+
+fn find_resource_file(app: &tauri::App, relative: &str) -> Option<PathBuf> {
+    if let Ok(resource_dir) = app.path().resource_dir() {
+        let bundled_path = resource_dir.join(relative);
+        if bundled_path.exists() {
+            return Some(bundled_path);
+        }
+    }
+
+    if let Ok(current_dir) = std::env::current_dir() {
+        let dev_path = current_dir.join(relative);
+        if dev_path.exists() {
+            return Some(dev_path);
+        }
+    }
+
+    None
+}
+
+fn start_bundled_llama_server(app: &tauri::App) -> Result<(), String> {
+    if is_llama_server_running() {
+        return Ok(());
+    }
+
+    #[cfg(target_os = "windows")]
+    let server_relative = "resources/bin/llama-server.exe";
+
+    #[cfg(not(target_os = "windows"))]
+    let server_relative = "resources/bin/llama-server";
+
+    let model_relative = "resources/models/qwen3-4b.gguf";
+
+    let server_path = find_resource_file(app, server_relative)
+        .ok_or_else(|| format!("Missing bundled llama-server at {}", server_relative))?;
+
+    let model_path = find_resource_file(app, model_relative)
+        .ok_or_else(|| format!("Missing bundled model at {}", model_relative))?;
+
+    Command::new(server_path)
+        .args([
+            "-m",
+            &model_path.to_string_lossy(),
+            "-c",
+            "1024",
+            "-t",
+            "4",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            "8081",
+        ])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .map_err(|e| format!("Failed to start bundled llama-server: {}", e))?;
+
+    Ok(())
+}
+
+/* =========================
+   LOCAL AI CHAT
+========================= */
 
 #[command]
 async fn run_local_ai(
@@ -92,7 +168,7 @@ async fn run_local_ai(
         .await
         .map_err(|e| {
             format!(
-                "llama-server is not running. Start it first with: cd ~/Projects/phoenix-ai/src-tauri && ./bin/llama-server -m models/qwen3-4b.gguf -c 1024 -t 4 --host 127.0.0.1 --port 8081. Error: {}",
+                "Built-in llama-server is not running yet. Close and reopen Phoenix AI, wait 10 seconds, then try again. Error: {}",
                 e
             )
         })?;
@@ -114,6 +190,10 @@ async fn run_local_ai(
 
     Ok(answer)
 }
+
+/* =========================
+   GROQ ONLINE AI
+========================= */
 
 #[command]
 async fn run_groq_ai(api_key: String, prompt: String) -> Result<String, String> {
@@ -180,24 +260,38 @@ async fn run_groq_ai(api_key: String, prompt: String) -> Result<String, String> 
     Ok(answer)
 }
 
+/* =========================
+   MODEL INSTALLER
+========================= */
+
 #[command]
 fn install_ollama_model(_model: String) -> Result<String, String> {
     Ok("Phoenix AI now uses built-in llama.cpp for text AI. Ollama is no longer required.".to_string())
 }
 
+/* =========================
+   SDXL / COMFYUI INSTALLER
+========================= */
+
 #[command]
 fn install_sdxl_stack() -> Result<String, String> {
     let script = r#"cd ~
+
 if [ ! -d "ComfyUI" ]; then
   git clone https://github.com/comfyanonymous/ComfyUI.git
 fi
+
 cd ComfyUI
+
 if [ ! -d "venv" ]; then
   python3.11 -m venv venv
 fi
+
 source venv/bin/activate
+
 python -m pip install --upgrade pip
 pip install -r requirements.txt --timeout 1000 --retries 10
+
 echo ""
 echo "✅ ComfyUI installed."
 echo "Now put your SDXL model inside:"
@@ -207,19 +301,31 @@ echo "Then run:"
 echo "cd ~/ComfyUI && source venv/bin/activate && python main.py"
 "#;
 
-    std::process::Command::new("osascript")
-        .args([
-            "-e",
-            &format!(
-                r#"tell application "Terminal" to do script "{}""#,
-                script.replace("\\", "\\\\").replace("\"", "\\\"")
-            ),
-        ])
-        .spawn()
-        .map_err(|e| format!("Failed to start SDXL installer: {}", e))?;
+    #[cfg(target_os = "macos")]
+    {
+        Command::new("osascript")
+            .args([
+                "-e",
+                &format!(
+                    r#"tell application "Terminal" to do script "{}""#,
+                    script.replace("\\", "\\\\").replace("\"", "\\\"")
+                ),
+            ])
+            .spawn()
+            .map_err(|e| format!("Failed to start SDXL installer: {}", e))?;
 
-    Ok("Started SDXL / ComfyUI installer in a new Terminal window.".to_string())
+        return Ok("Started SDXL / ComfyUI installer in a new Terminal window.".to_string());
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        Ok("SDXL installer auto-terminal is currently set up for macOS. Install ComfyUI manually on this OS.".to_string())
+    }
 }
+
+/* =========================
+   IMAGE GENERATION
+========================= */
 
 #[command]
 async fn generate_image_sdxl(prompt: String) -> Result<String, String> {
@@ -294,7 +400,12 @@ async fn generate_image_sdxl(prompt: String) -> Result<String, String> {
         .json(&body)
         .send()
         .await
-        .map_err(|e| format!("ComfyUI request error: {}", e))?;
+        .map_err(|e| {
+            format!(
+                "ComfyUI is not running. Start ComfyUI first at http://127.0.0.1:8188. Error: {}",
+                e
+            )
+        })?;
 
     let value: serde_json::Value = res
         .json()
@@ -348,6 +459,10 @@ async fn generate_image_sdxl(prompt: String) -> Result<String, String> {
 
     Err("Image generation timed out.".to_string())
 }
+
+/* =========================
+   PHOENIX MESSENGER
+========================= */
 
 fn start_messenger_server_internal() -> Result<String, String> {
     if MESSENGER_RUNNING.load(Ordering::SeqCst) {
@@ -529,8 +644,19 @@ fn get_messenger_messages() -> Result<Vec<String>, String> {
     Ok(copy)
 }
 
+/* =========================
+   APP ENTRY
+========================= */
+
 fn main() {
     tauri::Builder::default()
+        .setup(|app| {
+            if let Err(err) = start_bundled_llama_server(app) {
+                eprintln!("Phoenix AI llama-server startup error: {}", err);
+            }
+
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             run_local_ai,
             run_groq_ai,
