@@ -30,12 +30,17 @@
 
   "bundle": {
     "active": true,
-    "targets": ["nsis", "msi"],
-    "resources": ["icons"],
+    "targets": "all",
+    "resources": [
+      "icons",
+      "resources/bin/llama-server",
+      "resources/models/qwen3-4b.gguf"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
+      "icons/icon.icns",
       "icons/icon.ico"
     ],
     "publisher": "Phoenix AI",

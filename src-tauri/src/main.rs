@@ -30,26 +30,6 @@ fn local_username() -> String {
         .unwrap_or_else(|_| "Phoenix User".to_string())
 }
 
-/* =========================
-   OLLAMA TYPES
-========================= */
-
-#[derive(Serialize)]
-struct OllamaRequest {
-    model: String,
-    prompt: String,
-    images: Option<Vec<String>>,
-}
-
-#[derive(Deserialize)]
-struct OllamaResponse {
-    response: String,
-}
-
-/* =========================
-   GROQ TYPES
-========================= */
-
 #[derive(Serialize)]
 struct GroqRequest {
     model: String,
@@ -74,19 +54,11 @@ struct GroqChoice {
     message: GroqMessage,
 }
 
-/* =========================
-   MESSENGER TYPES
-========================= */
-
 #[derive(Serialize, Deserialize)]
 struct MessengerPacket {
     username: String,
     message: String,
 }
-
-/* =========================
-   OFFLINE AI CHAT
-========================= */
 
 #[command]
 async fn run_local_ai(
@@ -94,71 +66,54 @@ async fn run_local_ai(
     prompt: String,
     image: Option<String>,
 ) -> Result<String, String> {
-    let ollama_model = match model.as_str() {
-        "Phi3Mini" => "phi3:mini",
-        "Qwen2_7B" => "qwen3:4b",
-        "Qwen3_4B" => "qwen3:4b",
-        "qwen3:4b" => "qwen3:4b",
-        "high" => "qwen3:4b",
-        "VisionAI" => "llava:latest",
-        "vision" => "llava:latest",
-        _ => "phi3:mini",
-    };
+    if image.is_some() || model == "VisionAI" || model == "vision" {
+        return Err(
+            "Vision mode is not connected to built-in llama.cpp yet. Text AI now runs without Ollama."
+                .to_string(),
+        );
+    }
 
-    let clean_image = image.map(|img| {
-        img.replace("data:image/png;base64,", "")
-            .replace("data:image/jpeg;base64,", "")
-            .replace("data:image/jpg;base64,", "")
-            .replace("data:image/webp;base64,", "")
+    let body = json!({
+        "prompt": format!(
+            "You are Phoenix AI. Answer clearly and briefly.\n\nUser: {}\nPhoenix AI:",
+            prompt
+        ),
+        "n_predict": 80,
+        "temperature": 0.7,
+        "stop": ["User:", "</s>"]
     });
-
-    let body = OllamaRequest {
-        model: ollama_model.to_string(),
-        prompt,
-        images: clean_image.map(|img| vec![img]),
-    };
 
     let client = reqwest::Client::new();
 
     let res = client
-        .post("http://localhost:11434/api/generate")
+        .post("http://127.0.0.1:8081/completion")
         .json(&body)
         .send()
         .await
-        .map_err(|e| format!("Ollama request error: {}", e))?;
+        .map_err(|e| {
+            format!(
+                "llama-server is not running. Start it first with: cd ~/Projects/phoenix-ai/src-tauri && ./bin/llama-server -m models/qwen3-4b.gguf -c 1024 -t 4 --host 127.0.0.1 --port 8081. Error: {}",
+                e
+            )
+        })?;
 
-    let text = res
-        .text()
+    let value: serde_json::Value = res
+        .json()
         .await
-        .map_err(|e| format!("Ollama read error: {}", e))?;
+        .map_err(|e| format!("llama-server response error: {}", e))?;
 
-    let mut final_text = String::new();
+    let answer = value["content"]
+        .as_str()
+        .unwrap_or("")
+        .trim()
+        .to_string();
 
-    for line in text.lines() {
-        let trimmed = line.trim();
-
-        if trimmed.is_empty() {
-            continue;
-        }
-
-        if let Ok(parsed) = serde_json::from_str::<OllamaResponse>(trimmed) {
-            final_text.push_str(&parsed.response);
-        }
+    if answer.is_empty() {
+        return Err(format!("llama-server returned no text: {}", value));
     }
 
-    if final_text.trim().is_empty() {
-        return Err(format!(
-            "Ollama returned no text. Check that model '{}' is installed and Ollama is running.",
-            ollama_model
-        ));
-    }
-
-    Ok(final_text)
+    Ok(answer)
 }
-
-/* =========================
-   ONLINE GROQ AI CHAT
-========================= */
 
 #[command]
 async fn run_groq_ai(api_key: String, prompt: String) -> Result<String, String> {
@@ -225,35 +180,46 @@ async fn run_groq_ai(api_key: String, prompt: String) -> Result<String, String> 
     Ok(answer)
 }
 
-/* =========================
-   MODEL INSTALLER
-========================= */
-
 #[command]
-fn install_ollama_model(model: String) -> Result<String, String> {
-    let allowed_model = match model.as_str() {
-        "phi" => "phi3:mini",
-        "qwen" => "qwen3:4b",
-        "vision" => "llava:latest",
-        _ => return Err("Unknown model.".to_string()),
-    };
-
-    std::process::Command::new("ollama")
-        .args(["pull", allowed_model])
-        .spawn()
-        .map_err(|e| {
-            format!(
-                "Failed to start Ollama model install. Make sure Ollama is installed. Error: {}",
-                e
-            )
-        })?;
-
-    Ok(format!("Started installing {}", allowed_model))
+fn install_ollama_model(_model: String) -> Result<String, String> {
+    Ok("Phoenix AI now uses built-in llama.cpp for text AI. Ollama is no longer required.".to_string())
 }
 
-/* =========================
-   IMAGE GENERATION
-========================= */
+#[command]
+fn install_sdxl_stack() -> Result<String, String> {
+    let script = r#"cd ~
+if [ ! -d "ComfyUI" ]; then
+  git clone https://github.com/comfyanonymous/ComfyUI.git
+fi
+cd ComfyUI
+if [ ! -d "venv" ]; then
+  python3.11 -m venv venv
+fi
+source venv/bin/activate
+python -m pip install --upgrade pip
+pip install -r requirements.txt --timeout 1000 --retries 10
+echo ""
+echo "✅ ComfyUI installed."
+echo "Now put your SDXL model inside:"
+echo "$HOME/ComfyUI/models/checkpoints/"
+echo ""
+echo "Then run:"
+echo "cd ~/ComfyUI && source venv/bin/activate && python main.py"
+"#;
+
+    std::process::Command::new("osascript")
+        .args([
+            "-e",
+            &format!(
+                r#"tell application "Terminal" to do script "{}""#,
+                script.replace("\\", "\\\\").replace("\"", "\\\"")
+            ),
+        ])
+        .spawn()
+        .map_err(|e| format!("Failed to start SDXL installer: {}", e))?;
+
+    Ok("Started SDXL / ComfyUI installer in a new Terminal window.".to_string())
+}
 
 #[command]
 async fn generate_image_sdxl(prompt: String) -> Result<String, String> {
@@ -383,10 +349,6 @@ async fn generate_image_sdxl(prompt: String) -> Result<String, String> {
     Err("Image generation timed out.".to_string())
 }
 
-/* =========================
-   PHOENIX MESSENGER
-========================= */
-
 fn start_messenger_server_internal() -> Result<String, String> {
     if MESSENGER_RUNNING.load(Ordering::SeqCst) {
         return Ok("Messenger receiver already running on port 7878.".to_string());
@@ -485,7 +447,7 @@ fn set_messenger_peer(peer: String) -> Result<String, String> {
         return Err("Peer address cannot be empty.".to_string());
     }
 
-    let final_peer = if cleaned.contains(":") {
+    let final_peer = if cleaned.contains(':') {
         cleaned
     } else {
         format!("{}:7878", cleaned)
@@ -567,16 +529,13 @@ fn get_messenger_messages() -> Result<Vec<String>, String> {
     Ok(copy)
 }
 
-/* =========================
-   APP ENTRY
-========================= */
-
 fn main() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
             run_local_ai,
             run_groq_ai,
             install_ollama_model,
+            install_sdxl_stack,
             generate_image_sdxl,
             get_local_ip,
             start_messenger_server,

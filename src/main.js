@@ -709,12 +709,13 @@ function openModelsPage() {
   panel.innerHTML = `
     <h2>📦 Phoenix Model Installer</h2>
 
-    <p>Install local AI models for offline use with Ollama, or use Groq Online with an API key.</p>
+    <p>Install local AI models for offline use with Ollama, ComfyUI SDXL image generation, or use Groq Online.</p>
 
     <div class="messenger-actions">
       <button id="install-phi">Install Phi 3 Mini</button>
       <button id="install-qwen">Install Qwen 3 4B</button>
       <button id="install-vision">Install Vision AI</button>
+      <button id="install-sdxl">Install SDXL Image Gen</button>
     </div>
 
     <div id="model-install-status">Ready to install models.</div>
@@ -758,6 +759,16 @@ function openModelsPage() {
       status.textContent = "Error: " + err;
     }
   };
+
+  document.getElementById("install-sdxl").onclick = async () => {
+    status.textContent = "Starting SDXL / ComfyUI installer...";
+
+    try {
+      status.textContent = await invoke("install_sdxl_stack");
+    } catch (err) {
+      status.textContent = "Error: " + err;
+    }
+  };
 }
 
 /* NAVIGATION */
@@ -776,11 +787,13 @@ document.querySelectorAll("#nav button").forEach((button) => {
 
     if (text.includes("models")) {
       openModelsPage();
+      return;
     }
 
     if (text.includes("prompts")) {
       messages.innerHTML = "";
       addMessage("Prompts page opened. Soon you can add Phoenix personalities.", "ai", false);
+      return;
     }
 
     if (text.includes("chats")) {
