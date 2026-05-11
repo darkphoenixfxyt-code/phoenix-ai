@@ -1,5 +1,13 @@
 import "./style.css";
-import { invoke } from "@tauri-apps/api/core";
+
+let invoke = null;
+
+if (window.__TAURI_INTERNALS__) {
+  const tauri = await import("@tauri-apps/api/core");
+  invoke = tauri.invoke;
+}
+
+const isTauri = !!window.__TAURI_INTERNALS__;
 
 /* ELEMENTS */
 const messages = document.getElementById("messages");
@@ -49,6 +57,31 @@ const proCard = document.getElementById("pro-card");
 const inputBar = document.getElementById("input-bar");
 const typingIndicator = document.getElementById("typing-indicator");
 
+/* BROWSER MODE */
+function applyBrowserModeLocks() {
+  if (isTauri) return;
+  if (!modelSelect) return;
+
+  const offlineValues = ["low", "high", "vision", "image-fast"];
+
+  [...modelSelect.options].forEach((option) => {
+    if (offlineValues.includes(option.value)) {
+      option.disabled = true;
+      option.hidden = true;
+    }
+  });
+
+  modelSelect.value = "groq";
+
+  if (messages) {
+    addMessage(
+      "🌐 Browser Mode detected. Offline AI, Vision, and SDXL are locked. Use Groq Online instead.",
+      "ai",
+      false
+    );
+  }
+}
+
 /* STATE */
 let currentUploadedImage = null;
 let currentUploadedText = null;
@@ -86,7 +119,6 @@ function showTyping() {
 function hideTyping() {
   if (typingIndicator) typingIndicator.classList.add("hidden");
 }
-
 /* SAVE / LOAD */
 function saveChats() {
   localStorage.setItem("phoenixChats", JSON.stringify(chats));
@@ -327,6 +359,74 @@ async function sendMessage() {
 
   if (checkSecretCodes(prompt)) {
     promptInput.value = "";
+    return;
+  }
+
+  if (!isTauri && modelSelect.value !== "groq") {
+    promptInput.value = "";
+    addMessage(
+      "🌐 Browser Mode uses Groq Online. Offline AI works only in the desktop app.",
+      "ai"
+    );
+    return;
+  }
+
+  if (!isTauri && modelSelect.value === "groq") {
+    promptInput.value = "";
+    showTyping();
+
+    try {
+      const apiKey = getGroqApiKey();
+
+      if (!apiKey) {
+        hideTyping();
+        addMessage(
+          "Missing Groq API key. Open Settings → Online AI and paste your Groq API key.",
+          "ai"
+        );
+        return;
+      }
+
+      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "llama-3.1-8b-instant",
+          messages: [
+            {
+              role: "system",
+              content:
+                "You are Phoenix AI, a helpful, fast, modern AI assistant. Keep answers useful and clear.",
+            },
+            {
+              role: "user",
+              content: prompt,
+            },
+          ],
+          temperature: 0.7,
+          max_tokens: 2048,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data?.error?.message || "Groq API error");
+      }
+
+      const response =
+        data?.choices?.[0]?.message?.content || "Groq returned no response.";
+
+      hideTyping();
+      typeMessage(response, "ai");
+    } catch (err) {
+      hideTyping();
+      addMessage("Browser Groq error: " + err.message, "ai");
+    }
+
     return;
   }
 
@@ -1072,6 +1172,7 @@ renderHistory();
 detectPhoenixMode();
 updateModeCards();
 showAiBar();
+applyBrowserModeLocks();
 
 if (currentChatId && chats.find((c) => c.id === currentChatId)) {
   loadChat(currentChatId);
