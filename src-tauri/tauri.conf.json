@@ -33,7 +33,8 @@
     "targets": "all",
     "resources": [
       "icons",
-      "resources/bin/llama-server"
+      "resources/bin/llama-server.exe",
+      "resources/models/qwen3-4b.gguf"
     ],
     "icon": [
       "icons/32x32.png",
