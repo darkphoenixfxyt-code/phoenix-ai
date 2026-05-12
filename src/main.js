@@ -1,4 +1,10 @@
 import "./style.css";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_ANON_KEY
+);
 
 let invoke = null;
 
@@ -57,37 +63,15 @@ const proCard = document.getElementById("pro-card");
 const inputBar = document.getElementById("input-bar");
 const typingIndicator = document.getElementById("typing-indicator");
 
-/* BROWSER MODE */
-function applyBrowserModeLocks() {
-  if (isTauri) return;
-  if (!modelSelect) return;
-
-  const offlineValues = ["low", "high", "vision", "image-fast"];
-
-  [...modelSelect.options].forEach((option) => {
-    if (offlineValues.includes(option.value)) {
-      option.disabled = true;
-      option.hidden = true;
-    }
-  });
-
-  modelSelect.value = "groq";
-
-  if (messages) {
-    addMessage(
-      "🌐 Browser Mode detected. Offline AI, Vision, and SDXL are locked. Use Groq Online instead.",
-      "ai",
-      false
-    );
-  }
-}
-
 /* STATE */
 let currentUploadedImage = null;
 let currentUploadedText = null;
 let currentUploadedFileName = null;
 let messengerModeOpen = false;
-let messengerPoller = null;
+
+let currentRoom = "";
+let currentUsername = "";
+let roomChannel = null;
 
 let chats = JSON.parse(localStorage.getItem("phoenixChats")) || [];
 let currentChatId = localStorage.getItem("phoenixCurrentChatId") || null;
@@ -119,6 +103,34 @@ function showTyping() {
 function hideTyping() {
   if (typingIndicator) typingIndicator.classList.add("hidden");
 }
+
+/* BROWSER MODE */
+function applyBrowserModeLocks() {
+  if (isTauri) return;
+  if (!modelSelect) return;
+
+  const offlineValues = ["low", "high", "vision"];
+
+  [...modelSelect.options].forEach((option) => {
+    if (offlineValues.includes(option.value)) {
+      option.disabled = true;
+      option.hidden = true;
+    }
+  });
+
+  if (modelSelect.value !== "image-fast") {
+    modelSelect.value = "groq";
+  }
+
+  if (messages) {
+    addMessage(
+      "🌐 Browser Mode detected. Offline AI and Vision are locked. Use Groq Online or Online Image Gen.",
+      "ai",
+      false
+    );
+  }
+}
+
 /* SAVE / LOAD */
 function saveChats() {
   localStorage.setItem("phoenixChats", JSON.stringify(chats));
@@ -326,6 +338,11 @@ function startNewChat() {
   messengerModeOpen = false;
   showAiBar();
 
+  if (roomChannel) {
+    supabase.removeChannel(roomChannel);
+    roomChannel = null;
+  }
+
   messages.innerHTML = "";
   currentUploadedImage = null;
   currentUploadedText = null;
@@ -362,12 +379,33 @@ async function sendMessage() {
     return;
   }
 
-  if (!isTauri && modelSelect.value !== "groq") {
+  if (!isTauri && modelSelect.value !== "groq" && modelSelect.value !== "image-fast") {
     promptInput.value = "";
     addMessage(
-      "🌐 Browser Mode uses Groq Online. Offline AI works only in the desktop app.",
+      "🌐 Browser Mode uses Groq Online and Online Image Gen. Offline AI works only in the desktop app.",
       "ai"
     );
+    return;
+  }
+
+  if (modelSelect.value === "image-fast") {
+    promptInput.value = "";
+    showTyping();
+
+    try {
+      const finalPrompt = `${prompt}, high quality, cinematic, neon purple and orange theme`;
+      const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(
+        finalPrompt
+      )}?width=1024&height=1024&nologo=true`;
+
+      hideTyping();
+      addMessage("🎨 Generated image:", "ai");
+      addImageToChat(imageUrl);
+    } catch (err) {
+      hideTyping();
+      addMessage("Image generation error: " + err.message, "ai");
+    }
+
     return;
   }
 
@@ -390,7 +428,7 @@ async function sendMessage() {
       const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${apiKey}`,
+          Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -430,23 +468,6 @@ async function sendMessage() {
     return;
   }
 
-  if (modelSelect.value === "image-fast") {
-    promptInput.value = "";
-    showTyping();
-
-    try {
-      const imageUrl = await invoke("generate_image_sdxl", { prompt });
-      hideTyping();
-      addMessage("🎨 Generated image:", "ai");
-      addImageToChat(imageUrl);
-    } catch (err) {
-      hideTyping();
-      addMessage("Image generation error: " + err, "ai");
-    }
-
-    return;
-  }
-
   let finalPrompt = prompt;
 
   if (currentUploadedText) {
@@ -476,8 +497,6 @@ ${prompt}
   try {
     let response = "";
     const selectedModel = modelSelect.value;
-
-    console.log("Selected model:", selectedModel);
 
     if (selectedModel === "groq" || selectedModel.toLowerCase().includes("groq")) {
       const apiKey = getGroqApiKey();
@@ -639,25 +658,31 @@ promptInput.addEventListener("keydown", (e) => {
   }
 });
 
-/* MESSENGER */
-function addMessengerBubble(text, who) {
+/* REALTIME SUPABASE MESSENGER */
+function createRoomCode() {
+  return "phoenix-" + Math.random().toString(36).substring(2, 8);
+}
+
+function getRoomFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("room") || "";
+}
+
+function makeInviteLink(room) {
+  return `${window.location.origin}${window.location.pathname}?room=${encodeURIComponent(room)}`;
+}
+
+function addMessengerBubble(message, who = "other") {
   const bubble = document.createElement("div");
   bubble.className = `messenger-bubble ${who}`;
 
   const username = document.createElement("div");
   username.className = "messenger-username";
+  username.textContent = message.username || "User";
 
   const body = document.createElement("div");
   body.className = "messenger-message";
-
-  if (text.includes(":")) {
-    const split = text.split(":");
-    username.textContent = split.shift();
-    body.textContent = split.join(":").trim();
-  } else {
-    username.textContent = who === "me" ? "You" : "Friend";
-    body.textContent = text;
-  }
+  body.textContent = message.content || "";
 
   bubble.appendChild(username);
   bubble.appendChild(body);
@@ -670,25 +695,110 @@ function addMessengerBubble(text, who) {
   }
 }
 
-async function pollMessengerMessages() {
-  if (!messengerModeOpen) return;
+async function loadRoomMessages(room) {
+  const chat = document.getElementById("messenger-chat");
+  if (chat) chat.innerHTML = "";
 
-  try {
-    const newMessages = await invoke("get_messenger_messages");
+  const { data, error } = await supabase
+    .from("messages")
+    .select("*")
+    .eq("room", room)
+    .order("created_at", { ascending: true });
 
-    newMessages.forEach((msg) => {
-      if (msg.startsWith("ME: ")) {
-        addMessengerBubble(msg.replace("ME: ", ""), "me");
-      } else if (msg.startsWith("FRIEND: ")) {
-        addMessengerBubble(msg.replace("FRIEND: ", ""), "other");
-      } else if (msg.startsWith("SYSTEM: ")) {
-        addMessengerBubble(msg.replace("SYSTEM: ", ""), "other");
-      } else {
-        addMessengerBubble(msg, "other");
+  if (error) {
+    addMessengerBubble(
+      {
+        username: "System",
+        content: "Error loading messages: " + error.message,
+      },
+      "other"
+    );
+    return;
+  }
+
+  data.forEach((msg) => {
+    addMessengerBubble(msg, msg.username === currentUsername ? "me" : "other");
+  });
+}
+
+function subscribeToRoom(room) {
+  if (roomChannel) {
+    supabase.removeChannel(roomChannel);
+    roomChannel = null;
+  }
+
+  roomChannel = supabase
+    .channel(`room-${room}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "messages",
+        filter: `room=eq.${room}`,
+      },
+      (payload) => {
+        const msg = payload.new;
+        addMessengerBubble(msg, msg.username === currentUsername ? "me" : "other");
       }
-    });
-  } catch (err) {
-    console.log("Messenger polling error:", err);
+    )
+    .subscribe();
+}
+
+async function joinRealtimeRoom(room, username) {
+  if (!room || !username) {
+    alert("Enter a username and room code first.");
+    return;
+  }
+
+  currentRoom = room;
+  currentUsername = username;
+
+  localStorage.setItem("phoenixMessengerUsername", username);
+  localStorage.setItem("phoenixMessengerRoom", room);
+
+  const status = document.getElementById("messenger-status");
+  const invite = document.getElementById("messenger-invite-link");
+
+  if (status) {
+    status.textContent = `Joined room: ${room}`;
+  }
+
+  if (invite) {
+    invite.value = makeInviteLink(room);
+  }
+
+  await loadRoomMessages(room);
+  subscribeToRoom(room);
+}
+
+async function sendRealtimeMessage() {
+  const input = document.getElementById("messenger-input");
+  const text = input.value.trim();
+
+  if (!text) return;
+
+  if (!currentRoom || !currentUsername) {
+    alert("Join a room first.");
+    return;
+  }
+
+  input.value = "";
+
+  const { error } = await supabase.from("messages").insert({
+    room: currentRoom,
+    username: currentUsername,
+    content: text,
+  });
+
+  if (error) {
+    addMessengerBubble(
+      {
+        username: "System",
+        content: "Send error: " + error.message,
+      },
+      "other"
+    );
   }
 }
 
@@ -701,20 +811,37 @@ function openMessengerPage() {
 
   messages.innerHTML = "";
 
+  const savedUsername =
+    localStorage.getItem("phoenixMessengerUsername") ||
+    getMessengerUsername() ||
+    "Phoenix User";
+
+  const roomFromUrl = getRoomFromUrl();
+  const savedRoom = localStorage.getItem("phoenixMessengerRoom") || "";
+  const startingRoom = roomFromUrl || savedRoom;
+
   const panel = document.createElement("div");
   panel.id = "messenger-panel";
 
   panel.innerHTML = `
     <div class="messenger-card">
       <h2>📡 Phoenix Messenger</h2>
-      <p>Local Wi-Fi chat. For best results, both PCs should click Create Room, then join each other's room address.</p>
+      <p>Real online rooms powered by Supabase Realtime. Share the invite link so friends can join.</p>
+
+      <input id="messenger-username-input" placeholder="Your username" value="${savedUsername}" />
 
       <div class="messenger-actions">
+        <input id="room-code-input" placeholder="Room code" value="${startingRoom}" />
         <button id="create-room-btn">Create Room</button>
         <button id="join-room-btn">Join Room</button>
       </div>
 
-      <input id="room-ip-input" placeholder="Host IP, example: 192.168.1.24:7878" />
+      <input id="messenger-invite-link" readonly placeholder="Invite link will appear here" />
+
+      <div class="messenger-actions">
+        <button id="copy-invite-btn">Copy Invite Link</button>
+      </div>
+
       <div id="messenger-status">Not connected</div>
     </div>
 
@@ -729,77 +856,66 @@ function openMessengerPage() {
   messages.appendChild(panel);
 
   document.getElementById("create-room-btn").onclick = async () => {
-    const status = document.getElementById("messenger-status");
+    const room = createRoomCode();
+    const username = document.getElementById("messenger-username-input").value.trim();
 
-    try {
-      const serverMsg = await invoke("start_messenger_server");
-      const ip = await invoke("get_local_ip");
+    document.getElementById("room-code-input").value = room;
 
-      status.textContent = `${serverMsg} Your room address: ${ip}`;
-      addMessengerBubble(`Room created. Share this address: ${ip}`, "other");
-    } catch (err) {
-      status.textContent = "Error: " + err;
-      addMessengerBubble("Error: " + err, "other");
-    }
+    const newUrl = makeInviteLink(room);
+    window.history.replaceState({}, "", newUrl);
+
+    await joinRealtimeRoom(room, username);
   };
 
   document.getElementById("join-room-btn").onclick = async () => {
-    const ip = document.getElementById("room-ip-input").value.trim();
-    const status = document.getElementById("messenger-status");
+    const room = document.getElementById("room-code-input").value.trim();
+    const username = document.getElementById("messenger-username-input").value.trim();
 
-    if (!ip) {
-      status.textContent = "Enter a host IP first.";
+    const newUrl = makeInviteLink(room);
+    window.history.replaceState({}, "", newUrl);
+
+    await joinRealtimeRoom(room, username);
+  };
+
+  document.getElementById("copy-invite-btn").onclick = async () => {
+    const room = document.getElementById("room-code-input").value.trim();
+
+    if (!room) {
+      alert("Create or join a room first.");
       return;
     }
 
-    try {
-      const result = await invoke("set_messenger_peer", { peer: ip });
-      status.textContent = result;
-      addMessengerBubble(result, "other");
-    } catch (err) {
-      status.textContent = "Error: " + err;
-      addMessengerBubble("Error: " + err, "other");
-    }
+    const link = makeInviteLink(room);
+    document.getElementById("messenger-invite-link").value = link;
+
+    await navigator.clipboard.writeText(link);
+    alert("Invite link copied!");
   };
 
-  document.getElementById("messenger-send-btn").onclick = async () => {
-    const input = document.getElementById("messenger-input");
-    const text = input.value.trim();
-
-    if (!text) return;
-
-    try {
-      await invoke("send_messenger_message", {
-        message: text,
-        username: getMessengerUsername(),
-      });
-
-      input.value = "";
-      pollMessengerMessages();
-    } catch (err) {
-      addMessengerBubble("Error: " + err, "other");
-    }
-  };
+  document.getElementById("messenger-send-btn").onclick = sendRealtimeMessage;
 
   document.getElementById("messenger-input").addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
-      document.getElementById("messenger-send-btn").click();
+      sendRealtimeMessage();
     }
   });
 
-  pollMessengerMessages();
+  if (roomFromUrl) {
+    joinRealtimeRoom(roomFromUrl, savedUsername);
+  }
 }
 
 messengerBtn.onclick = openMessengerPage;
-
-if (!messengerPoller) {
-  messengerPoller = setInterval(pollMessengerMessages, 1000);
-}
 
 /* MODELS PAGE */
 function openModelsPage() {
   messengerModeOpen = false;
   showAiBar();
+
+  if (roomChannel) {
+    supabase.removeChannel(roomChannel);
+    roomChannel = null;
+  }
 
   messages.innerHTML = "";
 
@@ -880,6 +996,11 @@ document.querySelectorAll("#nav button").forEach((button) => {
     messengerModeOpen = false;
     showAiBar();
 
+    if (roomChannel) {
+      supabase.removeChannel(roomChannel);
+      roomChannel = null;
+    }
+
     document.querySelectorAll("#nav button").forEach((b) => b.classList.remove("active"));
     button.classList.add("active");
 
@@ -893,6 +1014,13 @@ document.querySelectorAll("#nav button").forEach((button) => {
     if (text.includes("prompts")) {
       messages.innerHTML = "";
       addMessage("Prompts page opened. Soon you can add Phoenix personalities.", "ai", false);
+      return;
+    }
+
+    if (text.includes("image")) {
+      messages.innerHTML = "";
+      modelSelect.value = "image-fast";
+      addMessage("🎨 Online Image Gen mode enabled. Type an image prompt below.", "ai", false);
       return;
     }
 
@@ -916,7 +1044,7 @@ const tutorialSteps = [
   "Click the plus button in the input bar to upload files or images.",
   "Use New Chat to start fresh. Your chat history will appear in the sidebar.",
   "Open Settings to change your name, theme colors, profile picture, and online AI key.",
-  "Open Messenger to create or join a local Wi-Fi chat room.",
+  "Open Messenger to create or join a real online room with an invite link.",
 ];
 
 let tutorialIndex = 0;
