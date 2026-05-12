@@ -98,24 +98,30 @@ body {
 }
 
 #logo {
-  width: 38px;
-  height: 38px;
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  overflow: hidden;
 
-  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 
-  display: grid;
-  place-items: center;
-
-  background:
-    radial-gradient(
-      circle,
-      #9b5cff,
-      #31105f
-    );
+  background: rgba(255,255,255,0.04);
 
   box-shadow:
-    0 0 24px
-    rgba(155,92,255,0.45);
+    0 0 20px rgba(168,85,247,0.45),
+    0 0 40px rgba(255,107,53,0.25);
+}
+
+#logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+
+  filter:
+    drop-shadow(0 0 10px rgba(255,107,53,0.7))
+    drop-shadow(0 0 18px rgba(168,85,247,0.7));
 }
 
 #brand h2 {
@@ -1472,4 +1478,291 @@ body {
 
 #messenger-send-btn {
   width: 90px;
+}
+#groq-guide-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999999;
+  animation: fadeIn 0.25s ease;
+}
+
+#groq-guide-box {
+  width: min(92%, 520px);
+  background: linear-gradient(
+    180deg,
+    rgba(18, 18, 30, 0.98),
+    rgba(10, 10, 18, 0.98)
+  );
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  border-radius: 28px;
+  padding: 28px;
+  color: white;
+  box-shadow:
+    0 0 40px rgba(168, 85, 247, 0.22),
+    0 25px 80px rgba(0, 0, 0, 0.55);
+}
+
+#groq-guide-box h2 {
+  margin-top: 0;
+  font-size: 28px;
+  margin-bottom: 12px;
+}
+
+#groq-guide-box p {
+  opacity: 0.8;
+  line-height: 1.6;
+}
+
+.groq-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 22px;
+  margin-bottom: 26px;
+}
+
+.groq-steps div {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.05);
+  padding: 12px 14px;
+  border-radius: 14px;
+}
+
+.groq-popup-actions {
+  display: flex;
+  gap: 14px;
+}
+
+.groq-popup-actions button {
+  flex: 1;
+  height: 50px;
+}
+#username-setup-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.78);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999999;
+}
+
+#username-setup-box {
+  width: min(92%, 460px);
+  background: linear-gradient(
+    180deg,
+    rgba(18,18,30,0.98),
+    rgba(10,10,18,0.98)
+  );
+  border: 1px solid rgba(168,85,247,0.35);
+  border-radius: 28px;
+  padding: 34px;
+  color: white;
+  box-shadow:
+    0 0 45px rgba(168,85,247,0.22),
+    0 25px 80px rgba(0,0,0,0.55);
+  animation: fadeIn 0.25s ease;
+}
+
+#username-setup-box h2 {
+  margin-top: 0;
+  font-size: 30px;
+  margin-bottom: 10px;
+}
+
+#username-setup-box p {
+  opacity: 0.82;
+  margin-bottom: 24px;
+}
+
+#username-setup-input {
+  width: 100%;
+  height: 54px;
+  border-radius: 16px;
+  border: 1px solid rgba(168,85,247,0.35);
+  background: rgba(255,255,255,0.04);
+  color: white;
+  padding: 0 16px;
+  font-size: 16px;
+  outline: none;
+  box-sizing: border-box;
+}
+
+#username-setup-input:focus {
+  border-color: #a855f7;
+  box-shadow: 0 0 20px rgba(168,85,247,0.25);
+}
+
+.username-setup-actions {
+  margin-top: 22px;
+}
+
+#username-continue-btn {
+  width: 100%;
+  height: 54px;
+}
+#startup-screen {
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(circle at center, rgba(124,58,237,0.22), transparent 45%),
+    radial-gradient(circle at center, rgba(255,107,53,0.14), transparent 55%),
+    #030306;
+  z-index: 999999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  animation: startupFadeOut 0.9s ease forwards;
+  animation-delay: 3.8s;
+}
+
+#startup-logo {
+  width: 190px;
+  height: 190px;
+  object-fit: contain;
+  filter:
+    drop-shadow(0 0 20px rgba(255,107,53,0.8))
+    drop-shadow(0 0 35px rgba(168,85,247,0.8));
+  animation: logoPowerUp 3.4s ease forwards;
+  z-index: 2;
+}
+
+.startup-ring {
+  position: absolute;
+  width: 310px;
+  height: 310px;
+  border-radius: 50%;
+  border: 2px solid rgba(168,85,247,0.55);
+  box-shadow:
+    0 0 30px rgba(168,85,247,0.5),
+    inset 0 0 35px rgba(255,107,53,0.25);
+  animation: ringSpin 2.8s linear infinite, ringPulse 3.4s ease forwards;
+}
+
+#startup-title {
+  margin-top: 28px;
+  letter-spacing: 12px;
+  font-size: 34px;
+  background: linear-gradient(90deg, #ff6b35, #ff2bd6, #a855f7);
+  -webkit-background-clip: text;
+  color: transparent;
+  opacity: 0;
+  animation: textReveal 1s ease forwards;
+  animation-delay: 1.8s;
+}
+
+#startup-subtitle {
+  margin-top: 8px;
+  color: rgba(255,255,255,0.7);
+  letter-spacing: 5px;
+  font-size: 12px;
+  opacity: 0;
+  animation: textReveal 1s ease forwards;
+  animation-delay: 2.3s;
+}
+
+#startup-loader {
+  width: 260px;
+  height: 4px;
+  margin-top: 34px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.12);
+  overflow: hidden;
+  opacity: 0;
+  animation: textReveal 0.6s ease forwards;
+  animation-delay: 2.4s;
+}
+
+#startup-loader div {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #ff6b35, #a855f7);
+  animation: loaderFill 1.2s ease forwards;
+  animation-delay: 2.5s;
+}
+
+@keyframes logoPowerUp {
+  0% {
+    opacity: 0;
+    transform: scale(0.55) rotate(-8deg);
+  }
+  35% {
+    opacity: 1;
+    transform: scale(1.1) rotate(0deg);
+  }
+  65% {
+    transform: scale(1);
+  }
+  85% {
+    filter:
+      drop-shadow(0 0 35px rgba(255,107,53,1))
+      drop-shadow(0 0 65px rgba(168,85,247,1));
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes ringSpin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes ringPulse {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  45% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  75% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1.05);
+  }
+}
+
+@keyframes textReveal {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes loaderFill {
+  from {
+    width: 0%;
+  }
+
+  to {
+    width: 100%;
+  }
+}
+
+@keyframes startupFadeOut {
+  to {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
 }

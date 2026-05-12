@@ -15,6 +15,16 @@ if (window.__TAURI_INTERNALS__) {
 
 const isTauri = !!window.__TAURI_INTERNALS__;
 
+window.addEventListener("load", () => {
+  const startup = document.getElementById("startup-screen");
+
+  setTimeout(() => {
+    if (startup) {
+      startup.remove();
+    }
+  }, 4800);
+});
+
 /* ELEMENTS */
 const messages = document.getElementById("messages");
 const promptInput = document.getElementById("prompt");
@@ -418,10 +428,53 @@ async function sendMessage() {
 
       if (!apiKey) {
         hideTyping();
-        addMessage(
-          "Missing Groq API key. Open Settings → Online AI and paste your Groq API key.",
-          "ai"
-        );
+
+        const groqPopup = document.createElement("div");
+
+        groqPopup.innerHTML = `
+          <div id="groq-guide-overlay">
+            <div id="groq-guide-box">
+              <h2>🌐 Groq API Required</h2>
+
+              <p>
+                Phoenix AI needs a free Groq API key to use Groq Online.
+              </p>
+
+              <div class="groq-steps">
+                <div>1. Go to <strong>console.groq.com</strong></div>
+                <div>2. Sign in or create an account</div>
+                <div>3. Open API Keys</div>
+                <div>4. Click Create API Key</div>
+                <div>5. Copy your new key</div>
+                <div>6. Return to Phoenix AI</div>
+                <div>7. Open Settings → Online AI</div>
+                <div>8. Paste your key</div>
+                <div>9. Click Save API Key</div>
+              </div>
+
+              <div class="groq-popup-actions">
+                <button id="open-groq-console">
+                  Open Groq Console
+                </button>
+
+                <button id="close-groq-popup">
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+
+        document.body.appendChild(groqPopup);
+
+        document.getElementById("open-groq-console").onclick = () => {
+          window.open("https://console.groq.com", "_blank");
+        };
+
+        document.getElementById("close-groq-popup").onclick = () => {
+          groqPopup.remove();
+        };
+
         return;
       }
 
@@ -503,10 +556,53 @@ ${prompt}
 
       if (!apiKey) {
         hideTyping();
-        addMessage(
-          "Missing Groq API key. Open Settings → Online AI and paste your Groq API key.",
-          "ai"
-        );
+
+        const groqPopup = document.createElement("div");
+
+        groqPopup.innerHTML = `
+          <div id="groq-guide-overlay">
+            <div id="groq-guide-box">
+              <h2>🌐 Groq API Required</h2>
+
+              <p>
+                Phoenix AI needs a free Groq API key to use Groq Online.
+              </p>
+
+              <div class="groq-steps">
+                <div>1. Go to <strong>console.groq.com</strong></div>
+                <div>2. Sign in or create an account</div>
+                <div>3. Open API Keys</div>
+                <div>4. Click Create API Key</div>
+                <div>5. Copy your new key</div>
+                <div>6. Return to Phoenix AI</div>
+                <div>7. Open Settings → Online AI</div>
+                <div>8. Paste your key</div>
+                <div>9. Click Save API Key</div>
+              </div>
+
+              <div class="groq-popup-actions">
+                <button id="open-groq-console">
+                  Open Groq Console
+                </button>
+
+                <button id="close-groq-popup">
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+
+        document.body.appendChild(groqPopup);
+
+        document.getElementById("open-groq-console").onclick = () => {
+          window.open("https://console.groq.com", "_blank");
+        };
+
+        document.getElementById("close-groq-popup").onclick = () => {
+          groqPopup.remove();
+        };
+
         return;
       }
 
@@ -1294,6 +1390,80 @@ if (proCard) {
   };
 }
 
+/* FIRST TIME USERNAME SETUP */
+
+function showUsernameSetup() {
+  const existingName = localStorage.getItem("phoenixUsernameSetup");
+
+  if (existingName) return;
+
+  const overlay = document.createElement("div");
+
+  overlay.innerHTML = `
+    <div id="username-setup-overlay">
+      <div id="username-setup-box">
+        <h2>🔥 Welcome to Phoenix AI</h2>
+
+        <p>
+          Choose your Phoenix username to continue.
+        </p>
+
+        <input
+          id="username-setup-input"
+          placeholder="Enter your username"
+          maxlength="24"
+        />
+
+        <div class="username-setup-actions">
+          <button id="username-continue-btn">
+            Continue
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  const input = document.getElementById("username-setup-input");
+
+  input.focus();
+
+  function finishSetup() {
+    const name = input.value.trim();
+
+    if (!name) return;
+
+    localStorage.setItem("phoenixUsernameSetup", name);
+
+    if (nameInput) {
+      nameInput.value = name;
+    }
+
+    if (displayName) {
+      displayName.textContent = name;
+    }
+
+    saveSettings();
+
+    overlay.remove();
+
+    addMessage(
+      `🔥 Welcome ${name} to Phoenix AI.`,
+      "ai",
+      false
+    );
+  }
+
+  document.getElementById("username-continue-btn").onclick = finishSetup;
+
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      finishSetup();
+    }
+  });
+}
+
 /* STARTUP */
 loadSettings();
 renderHistory();
@@ -1307,3 +1477,5 @@ if (currentChatId && chats.find((c) => c.id === currentChatId)) {
 } else {
   addMessage("Welcome to Phoenix AI. Start a new chat to begin.", "ai", false);
 }
+
+showUsernameSetup();
