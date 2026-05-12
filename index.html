@@ -1,7 +1,8 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Phoenix AI</title>
   <link rel="stylesheet" href="/src/style.css" />
 </head>
@@ -20,6 +21,7 @@
         <button class="active">💬 Chats</button>
         <button>📦 Models</button>
         <button>✨ Prompts</button>
+        <button id="image-gen-btn">🎨 Image Gen</button>
         <button id="messenger-btn">📡 Messenger</button>
         <button id="settings-btn">⚙ Settings</button>
       </nav>
@@ -57,12 +59,30 @@
             <option value="high">● Smart Offline (Qwen 3 4B)</option>
             <option value="vision">👁 Vision Offline (LLaVA)</option>
             <option value="groq">🌐 Groq Online</option>
-            <option value="image-fast">🎨 Fast Image Gen (SDXL)</option>
+            <option value="image-fast">🎨 Online Image Gen</option>
           </select>
         </div>
       </header>
 
       <div id="messages"></div>
+
+      <div id="image-gen-panel" class="hidden">
+        <h2>🎨 Phoenix Image Generator</h2>
+        <p>Powered by Pollinations AI</p>
+
+        <div id="image-gen-input-row">
+          <input
+            id="image-prompt"
+            placeholder="Describe an image..."
+          />
+
+          <button id="generate-image-btn">
+            Generate
+          </button>
+        </div>
+
+        <div id="image-result"></div>
+      </div>
 
       <div id="typing-indicator" class="typing hidden">
         <span></span>
@@ -102,22 +122,19 @@
 
         <div class="settings-row">
           <div class="settings-column">
-            <label>
-              Display Name
-              <input id="name-input" value="PHOENIX 🏅" />
-            </label>
+            <label for="name-input">Display Name</label>
+            <input id="name-input" value="PHOENIX 🏅" />
           </div>
 
           <div class="settings-column">
-            <label>
-              Profile Picture
-              <label for="pfp-upload" id="settings-pfp-label">
-                <img
-                  id="settings-pfp-preview"
-                  src="https://cdn-icons-png.flaticon.com/512/149/149071.png"
-                  alt="Profile Picture"
-                />
-              </label>
+            <p>Profile Picture</p>
+
+            <label for="pfp-upload" id="settings-pfp-label">
+              <img
+                id="settings-pfp-preview"
+                src="https://cdn-icons-png.flaticon.com/512/149/149071.png"
+                alt="Profile Picture"
+              />
             </label>
           </div>
         </div>
@@ -128,32 +145,31 @@
 
         <div class="settings-row">
           <div class="settings-column">
-            <label>
-              Groq API Key
-              <div class="api-key-row">
-  <input
-    id="groq-api-key"
-    type="password"
-    placeholder="Paste your Groq API key here"
-    autocomplete="off"
-  />
+            <label for="groq-api-key">Groq API Key</label>
 
-  <button id="save-groq-key">
-    Save API Key
-  </button>
+            <div class="api-key-row">
+              <input
+                id="groq-api-key"
+                type="password"
+                placeholder="Paste your Groq API key here"
+                autocomplete="off"
+              />
 
-  <button
-    id="groq-help-btn"
-    title="How to get a Groq API key"
-  >
-    ?
-  </button>
-</div>
+              <button id="save-groq-key">
+                Save API Key
+              </button>
 
-<div id="groq-help-text">
-  Go to console.groq.com → Sign in → API Keys → Create API Key → Copy the key and paste it here.
-</div>
-            </label>
+              <button
+                id="groq-help-btn"
+                title="How to get a Groq API key"
+              >
+                ?
+              </button>
+            </div>
+
+            <div id="groq-help-text">
+              Go to console.groq.com → Sign in → API Keys → Create API Key → Copy the key and paste it here.
+            </div>
 
             <p class="settings-note">
               Your key is stored only on this device. Do not share it publicly.
@@ -199,7 +215,7 @@
 
           <div class="mode-card" id="pro-card">
             <h4>Pro Mode</h4>
-            <p>Unlocks Vision AI, online AI, and SDXL image generation.</p>
+            <p>Unlocks Vision AI, online AI, and image generation.</p>
           </div>
         </div>
       </div>
@@ -239,6 +255,76 @@
       </div>
     </div>
   </div>
+
+  <script>
+    const imageGenBtn = document.getElementById("image-gen-btn");
+    const imagePanel = document.getElementById("image-gen-panel");
+    const messages = document.getElementById("messages");
+    const generateImageBtn = document.getElementById("generate-image-btn");
+    const imagePrompt = document.getElementById("image-prompt");
+    const imageResult = document.getElementById("image-result");
+    const modeSelect = document.getElementById("mode-select");
+
+    function openImageGen() {
+      messages.classList.add("hidden");
+      imagePanel.classList.remove("hidden");
+      modeSelect.value = "image-fast";
+    }
+
+    function openChat() {
+      imagePanel.classList.add("hidden");
+      messages.classList.remove("hidden");
+    }
+
+    imageGenBtn.addEventListener("click", openImageGen);
+
+    modeSelect.addEventListener("change", () => {
+      if (modeSelect.value === "image-fast") {
+        openImageGen();
+      } else {
+        openChat();
+      }
+    });
+
+    generateImageBtn.addEventListener("click", generatePhoenixImage);
+
+    imagePrompt.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        generatePhoenixImage();
+      }
+    });
+
+    function generatePhoenixImage() {
+      const prompt = imagePrompt.value.trim();
+
+      if (!prompt) {
+        alert("Type an image prompt first.");
+        return;
+      }
+
+      const finalPrompt = `${prompt}, high quality, cinematic, neon purple and orange theme`;
+      const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(finalPrompt)}?width=1024&height=1024&nologo=true`;
+
+      imageResult.innerHTML = `
+        <p>Generating image...</p>
+
+        <img
+          src="${imageUrl}"
+          alt="Generated image"
+          style="margin-top: 20px; max-width: 100%; border-radius: 18px;"
+        />
+
+        <a
+          href="${imageUrl}"
+          download="phoenix-ai-image.png"
+          target="_blank"
+          style="display: inline-block; margin-top: 15px;"
+        >
+          Download Image
+        </a>
+      `;
+    }
+  </script>
 
   <script type="module" src="/src/main.js"></script>
 </body>

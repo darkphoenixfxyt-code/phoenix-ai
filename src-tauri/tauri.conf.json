@@ -30,10 +30,10 @@
 
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["dmg", "app"],
     "resources": [
       "icons",
-      "resources/bin/llama-server.exe",
+      "resources/bin/llama-server",
       "resources/models/qwen3-4b.gguf"
     ],
     "icon": [

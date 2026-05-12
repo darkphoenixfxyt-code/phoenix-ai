@@ -1363,3 +1363,49 @@ body {
   font-size: 13px;
   line-height: 1.5;
 }
+#image-gen-panel {
+  padding: 30px;
+  height: 100%;
+  overflow-y: auto;
+}
+
+#image-gen-panel h2 {
+  margin-bottom: 5px;
+}
+
+#image-gen-panel p {
+  color: #aaa;
+  margin-bottom: 20px;
+}
+
+#image-gen-input-row {
+  display: flex;
+  gap: 10px;
+}
+
+#image-prompt {
+  flex: 1;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid #7c3aed;
+  background: #111;
+  color: white;
+}
+
+#generate-image-btn {
+  padding: 14px 20px;
+  border-radius: 12px;
+  border: none;
+  background: linear-gradient(135deg, #ff6b35, #7c3aed);
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+#image-result img {
+  box-shadow: 0 0 40px rgba(124, 58, 237, 0.4);
+}
+
+.hidden {
+  display: none !important;
+}
